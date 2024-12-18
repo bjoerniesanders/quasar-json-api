@@ -5,10 +5,10 @@ const { logError, writeFile } = require('./build.utils')
 const rootDir = global.rootDir
 const typeRoot = path.resolve(rootDir, './types')
 const distRoot = path.resolve(rootDir, './dist/types')
-const resolvePath = file => path.resolve(distRoot, file)
+const resolvePath = (file) => path.resolve(distRoot, file)
 const extraInterfaces = {}
 // eslint-disable-next-line no-useless-escape
-const toCamelCase = str => str.replace(/(-\w)/g, m => m[1].toUpperCase())
+const toCamelCase = (str) => str.replace(/(-\w)/g, (m) => m[1].toUpperCase())
 
 // if destination folder does not exist, create it now
 if (fs.existsSync(distRoot) === false) {
@@ -19,46 +19,40 @@ const writeJson = function (file, json) {
   return fs.writeFileSync(file, JSON.stringify(json, null, 2) + '\n', 'utf-8')
 }
 
-function writeLine (fileContent, line = '', indent = 0) {
-  fileContent.push(`${ line.padStart(line.length + (indent * 4), ' ') }\n`)
+function writeLine(fileContent, line = '', indent = 0) {
+  fileContent.push(`${line.padStart(line.length + indent * 4, ' ')}\n`)
 }
 
-function writeLines (fileContent, lines = '', indent = 0) {
-  lines.split('\n').forEach(line => writeLine(fileContent, line, indent))
+function writeLines(fileContent, lines = '', indent = 0) {
+  lines.split('\n').forEach((line) => writeLine(fileContent, line, indent))
 }
 
-function write (fileContent, text = '') {
-  fileContent.push(`${ text }`)
+function write(fileContent, text = '') {
+  fileContent.push(`${text}`)
 }
 
 const typeMap = new Map([
-  [ 'Any', 'any' ],
-  [ 'Component', 'Component' ],
-  [ 'String', 'string' ],
-  [ 'Boolean', 'boolean' ],
-  [ 'Number', 'number' ]
+  ['Any', 'any'],
+  ['Component', 'Component'],
+  ['String', 'string'],
+  ['Boolean', 'boolean'],
+  ['Number', 'number'],
 ])
 
 const fallbackComplexTypeMap = new Map([
-  [ 'Array', 'any[]' ],
-  [ 'Object', 'LooseDictionary' ]
+  ['Array', 'any[]'],
+  ['Object', 'LooseDictionary'],
 ])
 
-const dontNarrowValues = [
-  '(Boolean) true',
-  '(Boolean) false',
-  '(CSS selector)',
-  '(DOM Element)'
-]
+const dontNarrowValues = ['(Boolean) true', '(Boolean) false', '(CSS selector)', '(DOM Element)']
 
-function convertTypeVal (key, type, def, required) {
+function convertTypeVal(key, type, def, required) {
   const t = type.trim()
 
   if (def.values && t === 'String') {
-    const narrowedValues = def.values.filter(v =>
-      !dontNarrowValues.includes(v)
-      && typeof v === 'string'
-    ).map(v => `'${ v }'`)
+    const narrowedValues = def.values
+      .filter((v) => !dontNarrowValues.includes(v) && typeof v === 'string')
+      .map((v) => `'${v}'`)
 
     if (narrowedValues.length) {
       return narrowedValues.join(' | ')
@@ -74,8 +68,10 @@ function convertTypeVal (key, type, def, required) {
     if (def.definition) {
       const propDefinitions = getPropDefinitions(def.definition, required, true)
       const lines = []
-      propDefinitions.forEach(p => lines.push(...p.split('\n')))
-      return propDefinitions && propDefinitions.length > 0 ? `{\n        ${ lines.join('\n        ') } }${ t === 'Array' ? '[]' : '' }` : fallbackComplexTypeMap.get(t)
+      propDefinitions.forEach((p) => lines.push(...p.split('\n')))
+      return propDefinitions && propDefinitions.length > 0
+        ? `{\n        ${lines.join('\n        ')} }${t === 'Array' ? '[]' : ''}`
+        : fallbackComplexTypeMap.get(t)
     }
 
     return fallbackComplexTypeMap.get(t)
@@ -84,32 +80,31 @@ function convertTypeVal (key, type, def, required) {
   return t
 }
 
-function getTypeVal (key, def, required) {
+function getTypeVal(key, def, required) {
   if (def.tsType !== void 0) {
-    return Array.isArray(def.tsType)
-    ? def.tsType.map(type => type).join(' | ')
-    : def.tsType
+    return Array.isArray(def.tsType) ? def.tsType.map((type) => type).join(' | ') : def.tsType
   }
 
   return Array.isArray(def.type)
-    ? def.type.map(type => convertTypeVal(key, type, def, required)).join(' | ')
+    ? def.type.map((type) => convertTypeVal(key, type, def, required)).join(' | ')
     : convertTypeVal(key, def.type, def, required)
 }
 
-function getPropDefinition (key, propDef, required, docs = false, isMethodParam = false) {
+function getPropDefinition(key, propDef, required, docs = false, isMethodParam = false) {
   const propName = toCamelCase(key)
 
   if (propName.startsWith('...')) {
-    return isMethodParam ? `${ propName }: any[]` : '[index: string]: any'
-  }
-  else {
+    return isMethodParam ? `${propName}: any[]` : '[index: string]: any'
+  } else {
     const propType = getTypeVal(key, propDef, required)
     addToExtraInterfaces(propDef)
-    return `${ docs ? `/**\n * ${ propDef.desc }\n */\n` : '' }${ propName }${ !propDef.required && !required ? '?' : '' } : ${ propType }`
+    return `${docs ? `/**\n * ${propDef.desc}\n */\n` : ''}${propName}${
+      !propDef.required && !required ? '?' : ''
+    } : ${propType}`
   }
 }
 
-function getPropDefinitions (propDefs, required, docs = false, areMethodParams = false) {
+function getPropDefinitions(propDefs, required, docs = false, areMethodParams = false) {
   const defs = []
 
   for (const key in propDefs) {
@@ -122,24 +117,25 @@ function getPropDefinitions (propDefs, required, docs = false, areMethodParams =
   return defs
 }
 
-function getMethodDefinition (key, methodDef, required, isUtil = false) {
+function getMethodDefinition(key, methodDef, required, isUtil = false) {
   let def = `/**\n * ${methodDef.desc}\n`
   if (methodDef.params) {
-    def += `${ Object.entries(methodDef.params).map(([ name, paramDef ]) => ` * @param ${ name } ${ paramDef.desc }`).join('\n') }\n`
+    def += `${Object.entries(methodDef.params)
+      .map(([name, paramDef]) => ` * @param ${name} ${paramDef.desc}`)
+      .join('\n')}\n`
   }
 
   const returns = methodDef.returns
   if (returns) {
-    def += ` * @returns ${ returns.desc }\n`
+    def += ` * @returns ${returns.desc}\n`
   }
 
   def += ` */\n${isUtil ? 'export function ' + key : key}`
 
   if (methodDef.tsType !== void 0) {
-    def += `: ${ methodDef.tsType }`
+    def += `: ${methodDef.tsType}`
     addToExtraInterfaces(methodDef)
-  }
-  else {
+  } else {
     def += ' ('
 
     if (methodDef.params) {
@@ -155,30 +151,25 @@ function getMethodDefinition (key, methodDef, required, isUtil = false) {
   return def
 }
 
-function getObjectParamDefinition (def, required) {
+function getObjectParamDefinition(def, required) {
   const res = []
 
-  Object.keys(def).forEach(propName => {
-    const propDef = def[ propName ]
+  Object.keys(def).forEach((propName) => {
+    const propDef = def[propName]
     if (propDef.type && propDef.type === 'Function') {
-      res.push(
-        getMethodDefinition(propName, propDef, required)
-      )
-    }
-    else {
-      res.push(
-        getPropDefinition(propName, propDef, required, true)
-      )
+      res.push(getMethodDefinition(propName, propDef, required))
+    } else {
+      res.push(getPropDefinition(propName, propDef, required, true))
     }
   })
 
   return res
 }
 
-function getInjectionDefinition (injectionName, typeDef) {
+function getInjectionDefinition(injectionName, typeDef) {
   // Get property injection point
   for (const propKey in typeDef.props) {
-    const propDef = typeDef.props[ propKey ]
+    const propDef = typeDef.props[propKey]
     if (propDef.tsInjectionPoint) {
       return getPropDefinition(injectionName, propDef, true, true)
     }
@@ -186,27 +177,23 @@ function getInjectionDefinition (injectionName, typeDef) {
 
   // Get method injection point
   for (const methodKey in typeDef.methods) {
-    const methodDef = typeDef.methods[ methodKey ]
+    const methodDef = typeDef.methods[methodKey]
     if (methodDef.tsInjectionPoint) {
       return getMethodDefinition(injectionName, methodDef, true)
     }
   }
 }
 
-function copyHelpers (name) {
-  const
-    tsHelpers = path.resolve(__dirname, `./helpers/${name}`),
+function copyHelpers(name) {
+  const tsHelpers = path.resolve(__dirname, `./helpers/${name}`),
     destPath = resolvePath(`./${name}`)
 
   if (fs.existsSync(tsHelpers) === true) {
-    writeFile(
-      resolvePath(destPath),
-      fs.readFileSync(tsHelpers)
-    )
+    writeFile(resolvePath(destPath), fs.readFileSync(tsHelpers))
   }
 }
 
-function UpdatePackageJson () {
+function UpdatePackageJson() {
   const data = 'dist/types/index.d.ts'
   const packagePath = path.resolve(rootDir, './package.json')
   const packageJson = require(packagePath)
@@ -215,19 +202,15 @@ function UpdatePackageJson () {
   writeJson(packagePath, packageJson)
 }
 
-function copyPredefinedTypes (dir, parentDir) {
+function copyPredefinedTypes(dir, parentDir) {
   fs.readdirSync(dir)
-    .filter(file => path.basename(file).startsWith('.') !== true)
-    .forEach(file => {
+    .filter((file) => path.basename(file).startsWith('.') !== true)
+    .forEach((file) => {
       const fullPath = path.resolve(dir, file)
       const stats = fs.lstatSync(fullPath)
       if (stats.isFile()) {
-        writeFile(
-          resolvePath(parentDir ? parentDir + file : file),
-          fs.readFileSync(fullPath)
-        )
-      }
-      else if (stats.isDirectory()) {
+        writeFile(resolvePath(parentDir ? parentDir + file : file), fs.readFileSync(fullPath))
+      } else if (stats.isDirectory()) {
         const p = resolvePath(parentDir ? parentDir + file : file)
         if (!fs.existsSync(p)) {
           fs.mkdirSync(p)
@@ -237,7 +220,7 @@ function copyPredefinedTypes (dir, parentDir) {
     })
 }
 
-function addToExtraInterfaces (def, required) {
+function addToExtraInterfaces(def, required) {
   if (def !== void 0 && def.tsType !== void 0) {
     // When a type name is found and it has a definition,
     //  it's added for later usage if a previous definition isn't already there.
@@ -246,30 +229,24 @@ function addToExtraInterfaces (def, required) {
     // In this way it can be overwritten if a definition is found later on.
     // Interfaces without definition at the end of the build script
     //  are considered external custom types and imported as such
-    if (
-      extraInterfaces[ def.tsType ] === void 0
-      && def.definition !== void 0
-    ) {
-      extraInterfaces[ def.tsType ] = getObjectParamDefinition(
-        def.definition, required
-      )
-    }
-    else if (Array.isArray(def.tsType)) {
-      def.tsType.forEach(type => {
-      // eslint-disable-next-line no-prototype-builtins
-      if (!extraInterfaces.hasOwnProperty(type)) {
+    if (extraInterfaces[def.tsType] === void 0 && def.definition !== void 0) {
+      extraInterfaces[def.tsType] = getObjectParamDefinition(def.definition, required)
+    } else if (Array.isArray(def.tsType)) {
+      def.tsType.forEach((type) => {
+        // eslint-disable-next-line no-prototype-builtins
+        if (!extraInterfaces.hasOwnProperty(type)) {
           extraInterfaces[type] = void 0
         }
       })
     }
     // eslint-disable-next-line no-prototype-builtins
     else if (!extraInterfaces.hasOwnProperty(def.tsType)) {
-      extraInterfaces[ def.tsType ] = void 0
+      extraInterfaces[def.tsType] = void 0
     }
   }
 }
 
-function writeIndexDTS (apis, forcedTypes) {
+function writeIndexDTS(apis, forcedTypes) {
   const contents = []
   const quasarTypeContents = []
   const components = []
@@ -286,8 +263,8 @@ function writeIndexDTS (apis, forcedTypes) {
   //  we ignore the "missing package" error because it's the intended behaviour
   // writeLine(contents, `// @ts-ignore`)
   // writeLine(contents, `/// <reference types="@quasar/app" />`)
-  writeLine(contents, 'import { App, Component, ComponentPublicInstance, ComponentOptions } from \'vue\'')
-  writeLine(contents, 'import { LooseDictionary } from \'./ts-helpers\'')
+  writeLine(contents, "import type { ComponentPublicInstance, ComponentOptions } from 'vue'")
+  // writeLine(contents, "import type { LooseDictionary } from './ts-helpers'")
 
   // We expose `ts-helpers` because they are needed, if they exist
   if (fs.existsSync(path.resolve(typeRoot, './types.d.ts'))) {
@@ -296,7 +273,7 @@ function writeIndexDTS (apis, forcedTypes) {
 
   writeLine(contents)
 
-  apis.forEach(api => {
+  apis.forEach((api) => {
     if (api.api.type !== 'util') {
       writeLine(quasarTypeContents, `export as namespace ${api.name}`)
     }
@@ -304,39 +281,48 @@ function writeIndexDTS (apis, forcedTypes) {
 
   const injections = {}
 
-  apis.forEach(data => {
+  apis.forEach((data) => {
     const content = data.api
     const typeName = data.name
     const isUtil = content.type === 'util'
 
     if (isUtil !== true) {
-      const extendsVue = (content.type === 'component' || content.type === 'mixin')
-      const typeValue = `${ extendsVue ? 'ComponentOptions' : typeName }`
+      const extendsVue = content.type === 'component' || content.type === 'mixin'
+      const typeValue = `${extendsVue ? 'ComponentOptions' : typeName}`
       // Add Type to the appropriate section of types
       const propTypeDef = `${typeName}?: ${typeValue}`
       if (content.type === 'component') {
         write(components, propTypeDef)
-      }
-      else if (content.type === 'directive') {
+      } else if (content.type === 'directive') {
         write(directives, propTypeDef)
-      }
-      else if (content.type === 'plugin') {
+      } else if (content.type === 'plugin') {
         write(plugins, propTypeDef)
       }
 
       // Declare class
-      writeLine(quasarTypeContents, `export const ${ typeName }: ${ extendsVue ? 'ComponentOptions' : typeName }`)
-      writeLine(contents, `export interface ${ typeName } ${ extendsVue ? 'extends ComponentPublicInstance ' : '' }{`)
+      writeLine(
+        quasarTypeContents,
+        `export const ${typeName}: ${extendsVue ? 'ComponentOptions' : typeName}`
+      )
+      writeLine(
+        contents,
+        `export interface ${typeName} ${extendsVue ? 'extends ComponentPublicInstance ' : ''}{`
+      )
 
       // Write Props
       const props = getPropDefinitions(content.props, content.type === 'plugin', true)
-      props.forEach(prop => writeLines(contents, prop, 1))
+      props.forEach((prop) => writeLines(contents, prop, 1))
     }
 
     // Write Methods
     for (const methodKey in content.methods) {
-      const method = content.methods[ methodKey ]
-      const methodDefinition = getMethodDefinition(methodKey, method, content.type === 'plugin', isUtil)
+      const method = content.methods[methodKey]
+      const methodDefinition = getMethodDefinition(
+        methodKey,
+        method,
+        content.type === 'plugin',
+        isUtil
+      )
       writeLines(contents, methodDefinition, isUtil !== true ? 1 : 0)
     }
 
@@ -350,14 +336,14 @@ function writeIndexDTS (apis, forcedTypes) {
     if (content.type === 'plugin') {
       if (content.injection) {
         const injectionParts = content.injection.split('.')
-        if (!injections[ injectionParts[ 0 ] ]) {
-          injections[ injectionParts[ 0 ] ] = []
+        if (!injections[injectionParts[0]]) {
+          injections[injectionParts[0]] = []
         }
-        let def = getInjectionDefinition(injectionParts[ 1 ], content)
+        let def = getInjectionDefinition(injectionParts[1], content)
         if (!def) {
-          def = `${ injectionParts[ 1 ] }: ${ typeName }`
+          def = `${injectionParts[1]}: ${typeName}`
         }
-        injections[ injectionParts[ 0 ] ].push(def)
+        injections[injectionParts[0]].push(def)
       }
     }
   })
@@ -367,47 +353,46 @@ function writeIndexDTS (apis, forcedTypes) {
     importName.push(...forcedTypes)
   }
 
-  Object.keys(extraInterfaces).forEach(name => {
-    if (extraInterfaces[ name ] === void 0) {
+  Object.keys(extraInterfaces).forEach((name) => {
+    if (extraInterfaces[name] === void 0) {
       // If we find the symbol as part of the generated Quasar API,
       // we don't need to import it from custom TS API patches
-      if (apis.some(definition => definition.name === name)) {
+      if (apis.some((definition) => definition.name === name)) {
         return
       }
 
       importName.push(name)
-    }
-    else {
-      writeLine(contents, `export interface ${ name } {`)
-      extraInterfaces[ name ].forEach(def => {
+    } else {
+      writeLine(contents, `export interface ${name} {`)
+      extraInterfaces[name].forEach((def) => {
         writeLines(contents, def, 1)
       })
       writeLine(contents, '}\n')
     }
   })
 
-
   if (importName.length > 0) {
     const tsTypes = resolvePath('./types.d.ts')
     if (fs.existsSync(tsTypes)) {
       const data = `import { ${importName.join(', ')} } from './types'`
       writeLine(contents, data)
-    }
-    else {
-      console.error(`warning: 'types.d.ts' missing for import declarions needed for "${importName.join(', ')}"`)
+    } else {
+      console.error(
+        `warning: 'types.d.ts' missing for import declarions needed for "${importName.join(', ')}"`
+      )
     }
   }
 
   // Write injection types
   for (const key in injections) {
-    const injectionDefs = injections[ key ]
+    const injectionDefs = injections[key]
     if (injectionDefs) {
-      const injectionName = `${ key.toUpperCase().replace('$', '') }VueGlobals`
-      writeLine(contents, `import { ${ injectionName }, QSingletonGlobals } from "./globals";`)
+      const injectionName = `${key.toUpperCase().replace('$', '')}VueGlobals`
+      writeLine(contents, `import { ${injectionName}, QSingletonGlobals } from "./globals";`)
       writeLine(contents, 'declare module "./globals" {')
-      writeLine(contents, `export interface ${ injectionName } {`)
+      writeLine(contents, `export interface ${injectionName} {`)
       for (const defKey in injectionDefs) {
-        writeLines(contents, injectionDefs[ defKey ], 1)
+        writeLines(contents, injectionDefs[defKey], 1)
       }
       writeLine(contents, '}')
       writeLine(contents, '}')
@@ -418,11 +403,11 @@ function writeIndexDTS (apis, forcedTypes) {
 
   // Extend Vue instance with injections
   if (injections) {
-    writeLine(contents, 'declare module \'@vue/runtime-core\' {')
+    writeLine(contents, "declare module 'vue' {")
     writeLine(contents, 'interface ComponentCustomProperties {', 1)
 
     for (const key3 in injections) {
-      writeLine(contents, `${ key3 }: ${ key3.toUpperCase().replace('$', '') }VueGlobals`, 2)
+      writeLine(contents, `${key3}: ${key3.toUpperCase().replace('$', '')}VueGlobals`, 2)
     }
     writeLine(contents, '}', 1)
     writeLine(contents, '}')
@@ -430,7 +415,7 @@ function writeIndexDTS (apis, forcedTypes) {
 
   // addQuasarPluginOptions(contents, components, directives, plugins)
 
-  quasarTypeContents.forEach(line => write(contents, line))
+  quasarTypeContents.forEach((line) => write(contents, line))
 
   // writeLine(contents, 'export const Quasar: { install: (app: App, options: Partial<QuasarPluginOptions>) => any } & QSingletonGlobals')
   // writeLine(contents, 'export default Quasar')
@@ -446,20 +431,16 @@ function writeIndexDTS (apis, forcedTypes) {
 }
 
 module.exports.generate = function (data, forcedTypes) {
-  const apis = data.plugins
-    .concat(data.directives)
-    .concat(data.components)
-    .concat(data.utils)
+  const apis = data.plugins.concat(data.directives).concat(data.components).concat(data.utils)
 
   try {
-    copyHelpers ('ts-helpers.d.ts')
-    copyHelpers ('tsconfig.json')
-    copyHelpers ('vue.d.ts')
+    copyHelpers('ts-helpers.d.ts')
+    copyHelpers('tsconfig.json')
+    copyHelpers('vue.d.ts')
     copyPredefinedTypes(typeRoot)
     writeIndexDTS(apis, forcedTypes)
     UpdatePackageJson()
-  }
-  catch (err) {
+  } catch (err) {
     logError('build.types.js: something went wrong...')
     console.log()
     console.error(err)
